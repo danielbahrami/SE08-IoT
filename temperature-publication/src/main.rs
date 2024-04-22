@@ -2,20 +2,24 @@
 #![no_main]
 
 use esp_backtrace as _;
-use esp_hal::{clock::ClockControl, delay::Delay, peripherals::Peripherals, prelude::*};
+use esp_println::println;
+use esp_hal::{clock::ClockControl, gpio::IO, peripherals::Peripherals, prelude::*, delay::Delay};
 
 #[entry]
 fn main() -> ! {
     let peripherals = Peripherals::take();
     let system = peripherals.SYSTEM.split();
+    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 
-    let clocks = ClockControl::max(system.clock_control).freeze();
-    let delay = Delay::new(&clocks);
+    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut led = io.pins.gpio4.into_push_pull_output();
 
-    esp_println::logger::init_logger_from_env();
+    led.set_high();
 
+    let mut delay = Delay::new(&clocks);
+    println!("Hello world!");
     loop {
-        log::info!("Hello world!");
-        delay.delay(500.millis());
+        delay.delay_millis(1000);
+        led.toggle();
     }
 }
