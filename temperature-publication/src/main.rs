@@ -16,7 +16,7 @@ fn main() -> ! {
 
     led.set_high();
 
-    let mut delay = Delay::new(&clocks);
+    let delay = Delay::new(&clocks);
     println!("Hello world!");
     loop {
         delay.delay_millis(1000);
