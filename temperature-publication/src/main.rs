@@ -23,7 +23,8 @@ fn main() -> anyhow::Result<()> {
     AdcChannelDriver::new(peripherals.pins.gpio12)?;
 
     loop {
+        let d_out = adc.read(&mut adc_pin)?;
+        println!("{}", calculate_v_out(d_out as f32, V_MAX as f32, D_MAX as f32));
         thread::sleep(Duration::from_millis(1000));
-        println!("ADC value: {}", adc.read(&mut adc_pin)?);
     }
 }
