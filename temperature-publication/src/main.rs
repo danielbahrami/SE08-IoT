@@ -9,6 +9,10 @@ use esp_idf_sys::{self as _};
 const V_MAX: u32 = 2450;
 const D_MAX: u32 = 4095;
 
+fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
+   d_out * (v_max / d_max)
+}
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take()?;
