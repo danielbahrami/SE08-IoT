@@ -6,6 +6,9 @@ use esp_idf_hal::adc::*;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_sys::{self as _};
 
+const V_MAX: u32 = 2450;
+const D_MAX: u32 = 4095;
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take()?;
