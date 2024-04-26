@@ -15,7 +15,7 @@ const SSID: &str = "";
 const PASSWORD: &str = "";
 
 fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
-   d_out * (v_max / d_max)
+   d_out * v_max / d_max
 }
 
 fn calculate_temperature(v_out: f32, mv: f32) -> f32 {
