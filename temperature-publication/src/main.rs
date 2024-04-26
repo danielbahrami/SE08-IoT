@@ -10,6 +10,7 @@ use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
 const V_MAX: u32 = 2450;
 const D_MAX: u32 = 4095;
+const MV: f32 = 10.9;
 const SSID: &str = "";
 const PASSWORD: &str = "";
 
@@ -17,8 +18,8 @@ fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
    d_out * (v_max / d_max)
 }
 
-fn calculate_temperature() {
-
+fn calculate_temperature(v_out: f32, mv: f32) -> f32 {
+    v_out / mv
 }
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
@@ -63,7 +64,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         let d_out = adc.read(&mut adc_pin)?;
-        println!("{}", calculate_v_out(d_out as f32, V_MAX as f32, D_MAX as f32));
+        println!("Temperature: {:.2} °C", calculate_temperature(calculate_v_out(d_out as f32, V_MAX as f32, D_MAX as f32), MV));
         thread::sleep(Duration::from_millis(1000));
     }
 }
