@@ -50,10 +50,10 @@ fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take()?;
 
-    let mut adc = AdcDriver::new(peripherals.adc2, &Config::new().calibration(true))?;
+    let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
 
     let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
-    AdcChannelDriver::new(peripherals.pins.gpio12)?;
+    AdcChannelDriver::new(peripherals.pins.gpio32)?;
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
