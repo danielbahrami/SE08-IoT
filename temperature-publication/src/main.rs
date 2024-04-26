@@ -53,7 +53,7 @@ fn main() -> anyhow::Result<()> {
     let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
 
     let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
-    AdcChannelDriver::new(peripherals.pins.gpio32)?;
+    AdcChannelDriver::new(peripherals.pins.gpio34)?;
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
