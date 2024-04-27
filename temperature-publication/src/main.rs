@@ -4,7 +4,7 @@ use std::time::Duration;
 use esp_idf_hal::adc::config::Config;
 use esp_idf_hal::adc::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_svc::{eventloop::EspSystemEventLoop, mqtt::client::{EspMqttClient, EspMqttConnection, MqttClientConfiguration}, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi}};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, mqtt::client::{EspMqttClient, EspMqttConnection, MqttClientConfiguration, QoS}, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi}};
 use esp_idf_sys::{self as _, EspError};
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
@@ -58,6 +58,30 @@ fn mqtt_create(url: &str, client_id: &str) -> Result<(EspMqttClient<'static>, Es
     Ok((mqtt_client, mqtt_conn))
 }
 
+fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, topic: &str) -> Result<(), EspError> {
+    std::thread::scope(|s| {
+        print!("Starting MQTT client");
+        std::thread::Builder::new().stack_size(6000).spawn_scoped(s, move || {
+            println!("MQTT listening for messages");
+            while let Ok(event) = connection.next() {
+                println!("[Queue] Event: {}", event.payload());
+            }
+            println!("Connection closed");
+        }).unwrap();
+        client.subscribe(topic, QoS::AtMostOnce)?;
+        println!("Subscribed to topic \"{topic}\"");
+        std::thread::sleep(Duration::from_millis(500));
+        let payload = "Payload test";
+        loop {
+            client.enqueue(topic, QoS::AtMostOnce, false, payload.as_bytes())?;
+            println!("Published \"{payload}\" to topic \"{topic}\"");
+            let sleep_secs = 2;
+            println!("Now sleeping for {sleep_secs}s...");
+            std::thread::sleep(Duration::from_secs(sleep_secs));
+        }
+    })
+}
+
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take()?;
@@ -73,6 +97,9 @@ fn main() -> anyhow::Result<()> {
     connect_wifi(&mut wifi)?;
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
     println!("Wifi DHCP info: {:?}", ip_info);
+
+    let (mut client, mut conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
+    mqtt_run(&mut client, &mut conn, MQTT_TEST_TOPIC).unwrap();
 
     loop {
         let d_out = adc.read(&mut adc_pin)?;
