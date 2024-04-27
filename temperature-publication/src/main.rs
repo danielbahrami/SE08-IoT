@@ -11,8 +11,11 @@ use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 const V_MAX: u32 = 2450;
 const D_MAX: u32 = 4095;
 const MV: f32 = 10.9;
-const SSID: &str = "";
-const PASSWORD: &str = "";
+const WIFI_SSID: &str = "";
+const WIFI_PASSWORD: &str = "";
+const MQTT_BROKER: &str = "";
+const MQTT_COMMAND_TOPIC: &str = "";
+const MQTT_RESPONSE_TOPIC: &str = "";
 
 fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
    d_out * v_max / d_max
@@ -24,10 +27,10 @@ fn calculate_temperature(v_out: f32, mv: f32) -> f32 {
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
     let wifi_configuration: Configuration = Configuration::Client(ClientConfiguration {
-        ssid: SSID.try_into().unwrap(),
+        ssid: WIFI_SSID.try_into().unwrap(),
         bssid: None,
         auth_method: AuthMethod::WPA2Personal,
-        password: PASSWORD.try_into().unwrap(),
+        password: WIFI_PASSWORD.try_into().unwrap(),
         channel: None,
         ..Default::default()
     });
