@@ -14,8 +14,10 @@ const MV: f32 = 10.9;
 const WIFI_SSID: &str = "";
 const WIFI_PASSWORD: &str = "";
 const MQTT_BROKER: &str = "";
+const MQTT_CLIENT_ID: &str = "";
 const MQTT_COMMAND_TOPIC: &str = "";
 const MQTT_RESPONSE_TOPIC: &str = "";
+const MQTT_TEST_TOPIC: &str = "";
 
 fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
    d_out * v_max / d_max
