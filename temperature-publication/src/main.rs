@@ -4,8 +4,8 @@ use std::time::Duration;
 use esp_idf_hal::adc::config::Config;
 use esp_idf_hal::adc::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi}};
-use esp_idf_sys::{self as _};
+use esp_idf_svc::{eventloop::EspSystemEventLoop, mqtt::client::{EspMqttClient, EspMqttConnection, MqttClientConfiguration}, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi}};
+use esp_idf_sys::{self as _, EspError};
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
 const V_MAX: u32 = 2450;
@@ -47,6 +47,13 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()>
     println!("Wifi netif up");
 
     Ok(())
+}
+
+fn mqtt_create(url: &str, client_id: &str, ) -> Result<(EspMqttClient<'static>, EspMqttConnection), EspError> {
+    let (mqtt_client, mqtt_conn) = EspMqttClient::new(url, &MqttClientConfiguration {
+        client_id: Some(client_id), ..Default::default()
+    },)?;
+    Ok((mqtt_client, mqtt_conn))
 }
 
 fn main() -> anyhow::Result<()> {
