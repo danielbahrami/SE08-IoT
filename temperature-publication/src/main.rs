@@ -63,21 +63,34 @@ fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, 
         std::thread::Builder::new().stack_size(6000).spawn_scoped(s, move || {
             println!("MQTT listening for messages");
             while let Ok(event) = connection.next() {
-                println!("[Queue] Event: {}", event.payload());
+                let payload = event.payload().to_string();
+                if payload.starts_with("measure:") {
+                    let parts: Vec<&str> = payload.split(',').collect();
+                    if parts.len() != 2 {
+                        println!("Invalid command payload: {}", payload);
+                        continue;
+                    }
+                    if let (Ok(num_measurements), Ok(interval)) = (parts[0][8..].parse::<u32>(), parts[1].parse::<u64>()) {
+                        // execute_measurement(client, response_topic, num_measurements, interval)?;
+                    } else {
+                        println!("Invalid command payload: {}", payload);
+                    }
+                }
             }
             println!("Connection closed");
         }).unwrap();
         client.subscribe(command_topic, QoS::AtMostOnce)?;
         println!("Subscribed to topic \"{command_topic}\"");
         std::thread::sleep(Duration::from_millis(500));
-        let payload = "Payload test";
+        Ok(())
+        /* let payload = "Payload test";
         loop {
             client.enqueue(response_topic, QoS::AtMostOnce, false, payload.as_bytes())?;
             println!("Published \"{payload}\" to topic \"{response_topic}\"");
             let sleep_secs = 2;
             println!("Now sleeping for {sleep_secs}s...");
             std::thread::sleep(Duration::from_secs(sleep_secs));
-        }
+        } */
     })
 }
 
