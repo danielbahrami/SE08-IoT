@@ -17,7 +17,6 @@ const MQTT_BROKER: &str = "";
 const MQTT_CLIENT_ID: &str = "";
 const MQTT_COMMAND_TOPIC: &str = "";
 const MQTT_RESPONSE_TOPIC: &str = "";
-const MQTT_TEST_TOPIC: &str = "";
 
 fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
    d_out * v_max / d_max
@@ -58,7 +57,7 @@ fn mqtt_create(url: &str, client_id: &str) -> Result<(EspMqttClient<'static>, Es
     Ok((mqtt_client, mqtt_conn))
 }
 
-fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, topic: &str) -> Result<(), EspError> {
+fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, command_topic: &str, response_topic: &str) -> Result<(), EspError> {
     std::thread::scope(|s| {
         print!("Starting MQTT client");
         std::thread::Builder::new().stack_size(6000).spawn_scoped(s, move || {
@@ -68,13 +67,13 @@ fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, 
             }
             println!("Connection closed");
         }).unwrap();
-        client.subscribe(topic, QoS::AtMostOnce)?;
-        println!("Subscribed to topic \"{topic}\"");
+        client.subscribe(command_topic, QoS::AtMostOnce)?;
+        println!("Subscribed to topic \"{command_topic}\"");
         std::thread::sleep(Duration::from_millis(500));
         let payload = "Payload test";
         loop {
-            client.enqueue(topic, QoS::AtMostOnce, false, payload.as_bytes())?;
-            println!("Published \"{payload}\" to topic \"{topic}\"");
+            client.enqueue(response_topic, QoS::AtMostOnce, false, payload.as_bytes())?;
+            println!("Published \"{payload}\" to topic \"{response_topic}\"");
             let sleep_secs = 2;
             println!("Now sleeping for {sleep_secs}s...");
             std::thread::sleep(Duration::from_secs(sleep_secs));
@@ -99,7 +98,7 @@ fn main() -> anyhow::Result<()> {
     println!("Wifi DHCP info: {:?}", ip_info);
 
     let (mut client, mut conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
-    mqtt_run(&mut client, &mut conn, MQTT_TEST_TOPIC).unwrap();
+    mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC).unwrap();
 
     loop {
         let d_out = adc.read(&mut adc_pin)?;
