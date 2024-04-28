@@ -84,6 +84,7 @@ fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, 
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take()?;
+    let now = std::time::SystemTime::now();
 
     let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
 
