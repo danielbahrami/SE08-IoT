@@ -8,9 +8,9 @@ use esp_idf_svc::{eventloop::EspSystemEventLoop, mqtt::client::{EspMqttClient, E
 use esp_idf_sys::{self as _, EspError};
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
-const V_MAX: u32 = 2450;
-const D_MAX: u32 = 4095;
-const MV: f32 = 10.9;
+const MV_MAX: u32 = 3300;
+const INPUT_RANGE: u32 = 2450;
+const SENSOR_GAIN: f32 = -10.9;
 const WIFI_SSID: &str = "";
 const WIFI_PASSWORD: &str = "";
 const MQTT_BROKER: &str = "";
@@ -18,12 +18,12 @@ const MQTT_CLIENT_ID: &str = "";
 const MQTT_COMMAND_TOPIC: &str = "";
 const MQTT_RESPONSE_TOPIC: &str = "";
 
-fn calculate_v_out(d_out: f32, v_max: f32, d_max: f32) -> f32 {
-   d_out * v_max / d_max
+fn calculate_mv_out(adc_reading: f32, mv_max: f32, input_range: f32) -> f32 {
+   adc_reading * (mv_max / input_range)
 }
 
-fn calculate_temperature(v_out: f32, mv: f32) -> f32 {
-    v_out / mv
+fn calculate_temperature(mv_out: f32, sensor_gain: f32) -> f32 {
+    mv_out / sensor_gain
 }
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
@@ -115,8 +115,8 @@ fn main() -> anyhow::Result<()> {
     mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC).unwrap();
 
     loop {
-        let d_out = adc.read(&mut adc_pin)?;
-        println!("Temperature: {:.2} °C", calculate_temperature(calculate_v_out(d_out as f32, V_MAX as f32, D_MAX as f32), MV));
+        let adc_reading = adc.read(&mut adc_pin)?;
+        println!("{:.2}", calculate_mv_out(adc_reading as f32, MV_MAX as f32, INPUT_RANGE as f32));
         thread::sleep(Duration::from_millis(1000));
     }
 }
