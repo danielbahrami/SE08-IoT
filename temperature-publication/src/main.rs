@@ -8,13 +8,13 @@ use esp_idf_svc::{eventloop::EspSystemEventLoop, mqtt::client::{EspMqttClient, E
 use esp_idf_sys::{self as _, EspError};
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 
-const WIFI_SSID: &str = "";
-const WIFI_PASSWORD: &str = "";
+const WIFI_SSID: &str = "WIFI_SSID";
+const WIFI_PASSWORD: &str = "WIFI_PASSWORD";
 
-const MQTT_BROKER: &str = "";
-const MQTT_CLIENT_ID: &str = "";
-const MQTT_COMMAND_TOPIC: &str = "";
-const MQTT_RESPONSE_TOPIC: &str = "";
+const MQTT_BROKER: &str = "MQTT_BROKER";
+const MQTT_CLIENT_ID: &str = "MQTT_CLIENT_ID";
+const MQTT_COMMAND_TOPIC: &str = "MQTT_COMMAND_TOPIC";
+const MQTT_RESPONSE_TOPIC: &str = "MQTT_RESPONSE_TOPIC";
 
 const T_1: f32 = -50.0;
 const T_2: f32 = 50.0;
