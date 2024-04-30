@@ -22,8 +22,31 @@ const V_1: f32 = 2616.0;
 const V_2: f32 = 1558.0;
 const V_T: f32 = (V_2 - V_1) / (T_2 - T_1);
 
-fn calculate_temperature(mv: f32) -> f32 {
-    ((mv - V_1) / V_T) + T_1
+fn main() -> anyhow::Result<()> {
+    esp_idf_svc::sys::link_patches();
+    let peripherals = Peripherals::take()?;
+    let now = std::time::SystemTime::now();
+
+    let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
+
+    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
+    AdcChannelDriver::new(peripherals.pins.gpio34)?;
+
+    let sys_loop = EspSystemEventLoop::take()?;
+    let nvs = EspDefaultNvsPartition::take()?;
+    let mut wifi = BlockingWifi::wrap(EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?, sys_loop,)?;
+    connect_wifi(&mut wifi)?;
+    let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
+    println!("Wifi DHCP info: {:?}", ip_info);
+
+    let (mut client, mut conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
+    mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC).unwrap();
+
+    loop {
+        let adc_reading = adc.read(&mut adc_pin)?;
+        println!("{:.2}", calculate_temperature(adc_reading as f32));
+        thread::sleep(Duration::from_millis(1000));
+    }
 }
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
@@ -94,29 +117,6 @@ fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, 
     })
 }
 
-fn main() -> anyhow::Result<()> {
-    esp_idf_svc::sys::link_patches();
-    let peripherals = Peripherals::take()?;
-    let now = std::time::SystemTime::now();
-
-    let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
-
-    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
-    AdcChannelDriver::new(peripherals.pins.gpio34)?;
-
-    let sys_loop = EspSystemEventLoop::take()?;
-    let nvs = EspDefaultNvsPartition::take()?;
-    let mut wifi = BlockingWifi::wrap(EspWifi::new(peripherals.modem, sys_loop.clone(), Some(nvs))?, sys_loop,)?;
-    connect_wifi(&mut wifi)?;
-    let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
-    println!("Wifi DHCP info: {:?}", ip_info);
-
-    let (mut client, mut conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
-    mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC).unwrap();
-
-    loop {
-        let adc_reading = adc.read(&mut adc_pin)?;
-        println!("{:.2}", calculate_temperature(adc_reading as f32));
-        thread::sleep(Duration::from_millis(1000));
-    }
+fn calculate_temperature(mv: f32) -> f32 {
+    ((mv - V_1) / V_T) + T_1
 }
