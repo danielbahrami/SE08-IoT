@@ -1,8 +1,12 @@
-use std::thread;
+use std::{thread, time::SystemTime};
 use std::time::Duration;
 
-use esp_idf_hal::adc::config::Config;
-use esp_idf_hal::adc::*;
+use esp_idf_hal::adc::attenuation::DB_11;
+use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
+use esp_idf_hal::adc::oneshot::{AdcChannelDriver, AdcDriver};
+use esp_idf_hal::adc::{self};
+use esp_idf_hal::gpio::{self};
+use esp_idf_hal::peripheral::Peripheral;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_svc::{eventloop::EspSystemEventLoop, mqtt::client::{EspMqttClient, EspMqttConnection, MqttClientConfiguration, QoS}, nvs::EspDefaultNvsPartition, wifi::{BlockingWifi, EspWifi}};
 use esp_idf_sys::{self as _, EspError};
@@ -25,12 +29,7 @@ const V_T: f32 = (V_2 - V_1) / (T_2 - T_1);
 fn main() -> anyhow::Result<()> {
     esp_idf_svc::sys::link_patches();
     let peripherals = Peripherals::take()?;
-    let now = std::time::SystemTime::now();
-
-    let mut adc = AdcDriver::new(peripherals.adc1, &Config::new().calibration(true))?;
-
-    let mut adc_pin: esp_idf_hal::adc::AdcChannelDriver<{ attenuation::DB_11 }, _> =
-    AdcChannelDriver::new(peripherals.pins.gpio34)?;
+    let uptime = std::time::SystemTime::now();
 
     let sys_loop = EspSystemEventLoop::take()?;
     let nvs = EspDefaultNvsPartition::take()?;
@@ -40,11 +39,9 @@ fn main() -> anyhow::Result<()> {
     println!("Wifi DHCP info: {:?}", ip_info);
 
     let (mut client, mut conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
-    mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC).unwrap();
+    mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC, uptime, peripherals.adc1, peripherals.pins.gpio34).unwrap();
 
     loop {
-        let adc_reading = adc.read(&mut adc_pin)?;
-        println!("{:.2}", calculate_temperature(adc_reading as f32));
         thread::sleep(Duration::from_millis(1000));
     }
 }
@@ -80,10 +77,26 @@ fn mqtt_create(url: &str, client_id: &str) -> Result<(EspMqttClient<'static>, Es
     Ok((mqtt_client, mqtt_conn))
 }
 
-fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, command_topic: &str, response_topic: &str) -> Result<(), EspError> {
-    std::thread::scope(|s| {
+fn mqtt_run(
+    client: &mut EspMqttClient<'_>,
+    connection: &mut EspMqttConnection,
+    command_topic: &str,
+    response_topic: &str,
+    uptime: SystemTime,
+    adc_driver: adc::ADC1,
+    adc_pin: impl Peripheral<P = gpio::Gpio34>) -> Result<(), EspError> {
+
+        let adc_config = AdcChannelConfig {
+            attenuation: DB_11,
+            calibration: true,
+            ..Default::default()
+        };
+        let adc = AdcDriver::new(adc_driver).unwrap();
+        let mut adc_pin = AdcChannelDriver::new(&adc, adc_pin, &adc_config).unwrap();
+
+        std::thread::scope(|s| {
         print!("Starting MQTT client");
-        std::thread::Builder::new().stack_size(6000).spawn_scoped(s, move || {
+        std::thread::Builder::new().stack_size(6000).spawn_scoped(&s, move || {
             println!("MQTT listening for messages");
             while let Ok(event) = connection.next() {
                 let payload = event.payload().to_string();
@@ -94,7 +107,17 @@ fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, 
                         continue;
                     }
                     if let (Ok(num_measurements), Ok(interval)) = (parts[0][8..].parse::<u32>(), parts[1].parse::<u64>()) {
-                        // execute_measurement(client, response_topic, num_measurements, interval)?;
+                        for i in (0..num_measurements).rev() {
+                            let remaining_measurements = i;
+                            let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
+                            let uptime = uptime.elapsed().unwrap().as_millis();
+                            let payload = format!("{},{},{}", remaining_measurements, temperature, uptime);
+                            client.enqueue(response_topic, QoS::AtMostOnce, false, payload.as_bytes());
+                            println!("Published '{}' to topic '{}'", payload, response_topic);
+                            if remaining_measurements > 0 {
+                                std::thread::sleep(Duration::from_millis(interval));
+                            }
+                        }
                     } else {
                         println!("Invalid command payload: {}", payload);
                     }
@@ -106,14 +129,6 @@ fn mqtt_run(client: &mut EspMqttClient<'_>, connection: &mut EspMqttConnection, 
         println!("Subscribed to topic \"{command_topic}\"");
         std::thread::sleep(Duration::from_millis(500));
         Ok(())
-        /* let payload = "Payload test";
-        loop {
-            client.enqueue(response_topic, QoS::AtMostOnce, false, payload.as_bytes())?;
-            println!("Published \"{payload}\" to topic \"{response_topic}\"");
-            let sleep_secs = 2;
-            println!("Now sleeping for {sleep_secs}s...");
-            std::thread::sleep(Duration::from_secs(sleep_secs));
-        } */
     })
 }
 
