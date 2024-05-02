@@ -1,3 +1,4 @@
+use std::sync::mpsc;
 use std::{thread, time::SystemTime};
 use std::time::Duration;
 
@@ -38,8 +39,8 @@ fn main() -> anyhow::Result<()> {
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
     println!("Wifi DHCP info: {:?}", ip_info);
 
-    let (mut client, mut conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
-    mqtt_run(&mut client, &mut conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC, uptime, peripherals.adc1, peripherals.pins.gpio34).unwrap();
+    let (mut client, conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
+    mqtt_run(&mut client, conn, MQTT_COMMAND_TOPIC, MQTT_RESPONSE_TOPIC, peripherals.adc1, peripherals.pins.gpio34, uptime);
 
     loop {
         thread::sleep(Duration::from_millis(1000));
@@ -79,12 +80,12 @@ fn mqtt_create(url: &str, client_id: &str) -> Result<(EspMqttClient<'static>, Es
 
 fn mqtt_run(
     client: &mut EspMqttClient<'_>,
-    connection: &mut EspMqttConnection,
+    mut connection: EspMqttConnection,
     command_topic: &str,
     response_topic: &str,
-    uptime: SystemTime,
     adc_driver: adc::ADC1,
-    adc_pin: impl Peripheral<P = gpio::Gpio34>) -> Result<(), EspError> {
+    adc_pin: impl Peripheral<P = gpio::Gpio34> + 'static,
+    uptime: SystemTime) {
 
         let adc_config = AdcChannelConfig {
             attenuation: DB_11,
@@ -94,42 +95,66 @@ fn mqtt_run(
         let adc = AdcDriver::new(adc_driver).unwrap();
         let mut adc_pin = AdcChannelDriver::new(&adc, adc_pin, &adc_config).unwrap();
 
-        std::thread::scope(|s| {
-        print!("Starting MQTT client");
-        std::thread::Builder::new().stack_size(6000).spawn_scoped(&s, move || {
+        let (tx, rx) = mpsc::channel::<String>();
+        
+        std::thread::spawn(move || {
             println!("MQTT listening for messages");
             while let Ok(event) = connection.next() {
                 let payload = event.payload().to_string();
                 if payload.starts_with("measure:") {
-                    let parts: Vec<&str> = payload.split(',').collect();
-                    if parts.len() != 2 {
-                        println!("Invalid command payload: {}", payload);
+                    tx.send(payload).unwrap();
+                } else {
+                    println!("Invalid command payload: {}", payload);
+                }
+        }
+      });
+      client.subscribe(command_topic, QoS::AtMostOnce).unwrap();
+      println!("Subscribed to topic \"{command_topic}\"");
+
+      loop {
+        match rx.recv() {
+            Ok(payload) => {
+                let parts: Vec<&str> = payload.split(',').collect();
+                if parts.len() != 2 {
+                    println!("Invalid command payload: {}", payload);
+                    continue;
+                }
+                let num_measurements = match parts[0][8..].parse::<u32>() {
+                    Ok(num) => num,
+                    Err(_) => {
+                        println!("Invalid number of measurements: {}", &parts[0][8..]);
                         continue;
                     }
-                    if let (Ok(num_measurements), Ok(interval)) = (parts[0][8..].parse::<u32>(), parts[1].parse::<u64>()) {
-                        for i in (0..num_measurements).rev() {
-                            let remaining_measurements = i;
-                            let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
-                            let uptime = uptime.elapsed().unwrap().as_millis();
-                            let payload = format!("{},{},{}", remaining_measurements, temperature, uptime);
-                            client.enqueue(response_topic, QoS::AtMostOnce, false, payload.as_bytes());
-                            println!("Published '{}' to topic '{}'", payload, response_topic);
-                            if remaining_measurements > 0 {
-                                std::thread::sleep(Duration::from_millis(interval));
-                            }
-                        }
-                    } else {
-                        println!("Invalid command payload: {}", payload);
+                };
+                let interval = match parts[1].parse::<u64>() {
+                    Ok(interval) => interval,
+                    Err(_) => {
+                        println!("Invalid interval: {}", parts[1]);
+                        continue;
+                    }
+                };
+
+                for i in (0..num_measurements).rev() {
+                    let remaining_messages = i;
+                    let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
+                    let uptime = uptime.elapsed().unwrap().as_millis();
+                    let measurement_payload = format!("{},{},{}", remaining_messages, temperature, uptime);
+                    if let Err(err) = client.enqueue(response_topic, QoS::AtMostOnce, false, measurement_payload.as_bytes()) {
+                        println!("Error publishing measurement: {:?}", err);
+                        break;
+                    }
+                    println!("Published '{}' to topic '{}'", measurement_payload, response_topic);
+                    if remaining_messages > 0 {
+                        std::thread::sleep(Duration::from_millis(interval));
                     }
                 }
             }
-            println!("Connection closed");
-        }).unwrap();
-        client.subscribe(command_topic, QoS::AtMostOnce)?;
-        println!("Subscribed to topic \"{command_topic}\"");
-        std::thread::sleep(Duration::from_millis(500));
-        Ok(())
-    })
+            Err(err) => {
+                println!("Error receiving message from channel: {:?}", err);
+                break;
+            }
+        }
+    }
 }
 
 fn calculate_temperature(mv: f32) -> f32 {
