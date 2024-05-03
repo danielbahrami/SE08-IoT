@@ -139,7 +139,7 @@ fn mqtt_run(
                     let remaining_messages = i;
                     let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
                     let uptime = uptime.elapsed().unwrap().as_millis();
-                    let measurement_payload = format!("{},{},{}", remaining_messages, temperature, uptime);
+                    let measurement_payload = format!("{}, {}, {}", remaining_messages, temperature, uptime);
                     if let Err(err) = client.enqueue(response_topic, QoS::AtMostOnce, false, measurement_payload.as_bytes()) {
                         println!("Error publishing measurement: {:?}", err);
                         break;
