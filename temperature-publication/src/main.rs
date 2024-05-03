@@ -139,12 +139,12 @@ fn mqtt_run(
                     let remaining_messages = i;
                     let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
                     let uptime = uptime.elapsed().unwrap().as_millis();
-                    let measurement_payload = format!("{}, {:.1}, {}", remaining_messages, temperature, uptime);
-                    if let Err(err) = client.enqueue(response_topic, QoS::AtMostOnce, false, measurement_payload.as_bytes()) {
+                    let response_payload = format!("{}, {:.1}, {}", remaining_messages, temperature, uptime);
+                    if let Err(err) = client.enqueue(response_topic, QoS::AtMostOnce, false, response_payload.as_bytes()) {
                         println!("Error publishing measurement: {:?}", err);
                         break;
                     }
-                    println!("Published '{}' to topic '{}'", measurement_payload, response_topic);
+                    println!("Published '{}' to topic '{}'", response_payload, response_topic);
                     if remaining_messages > 0 {
                         std::thread::sleep(Duration::from_millis(interval));
                     }
