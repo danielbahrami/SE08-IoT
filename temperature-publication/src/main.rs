@@ -101,10 +101,12 @@ fn mqtt_run(
             println!("MQTT listening for messages");
             while let Ok(event) = connection.next() {
                 let payload = event.payload().to_string();
-                let start_index = payload.find("measure:").unwrap() + 8;
-                let end_index = payload[start_index..].find("\"").unwrap() + start_index;
-                let payload_data = &payload[start_index..end_index];
-                tx.send(payload_data.to_string()).unwrap();
+                if let Some(start_index) = payload.find("measure:") {
+                    let end_index = payload[start_index..].find("\"").map(|i| i + start_index).unwrap_or(payload.len());
+                    let payload_data = &payload[start_index..end_index];
+                    println!("Payload data: {}", payload_data);
+                    tx.send(payload_data.to_string()).unwrap();
+                }
         }
       });
       client.subscribe(command_topic, QoS::AtMostOnce).unwrap();
