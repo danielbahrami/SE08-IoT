@@ -101,11 +101,10 @@ fn mqtt_run(
             println!("MQTT listening for messages");
             while let Ok(event) = connection.next() {
                 let payload = event.payload().to_string();
-                if payload.starts_with("measure:") {
-                    tx.send(payload).unwrap();
-                } else {
-                    println!("Invalid command payload: {}", payload);
-                }
+                let start_index = payload.find("measure:").unwrap() + 8;
+                let end_index = payload[start_index..].find("\"").unwrap() + start_index;
+                let payload_data = &payload[start_index..end_index];
+                tx.send(payload_data.to_string()).unwrap();
         }
       });
       client.subscribe(command_topic, QoS::AtMostOnce).unwrap();
