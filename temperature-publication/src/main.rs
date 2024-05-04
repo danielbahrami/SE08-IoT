@@ -194,7 +194,7 @@ fn mqtt_run(
                     let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
                     let uptime = uptime.elapsed().unwrap().as_millis();
                     let response_payload =
-                        format!("{}, {:.1}, {}", remaining_messages, temperature, uptime);
+                        format!("{},{:.1},{}", remaining_messages, temperature, uptime);
                     if let Err(err) = client.enqueue(
                         response_topic,
                         QoS::AtMostOnce,
