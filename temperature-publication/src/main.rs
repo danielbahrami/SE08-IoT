@@ -148,7 +148,7 @@ fn mqtt_run(
                         response_topic,
                         QoS::AtMostOnce,
                         false,
-                        format!("Invalid command payload: {}", payload).as_bytes()
+                        format!("Invalid command payload: {}", payload).as_bytes(),
                     ) {
                         println!("Error publishing payload: {:?}", err);
                         break;
@@ -163,7 +163,8 @@ fn mqtt_run(
                             response_topic,
                             QoS::AtMostOnce,
                             false,
-                            format!("Invalid number of measurements: {}", &parts[0][8..]).as_bytes()
+                            format!("Invalid number of measurements: {}", &parts[0][8..])
+                                .as_bytes(),
                         ) {
                             println!("Error publishing payload: {:?}", err);
                             break;
@@ -179,7 +180,7 @@ fn mqtt_run(
                             response_topic,
                             QoS::AtMostOnce,
                             false,
-                            format!("Invalid interval: {}", parts[1]).as_bytes()
+                            format!("Invalid interval: {}", parts[1]).as_bytes(),
                         ) {
                             println!("Error publishing payload: {:?}", err);
                             break;
