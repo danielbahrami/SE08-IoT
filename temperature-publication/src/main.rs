@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 use std::time::Duration;
-use std::{thread, time::SystemTime};
+use std::time::SystemTime;
 
 use embedded_svc::wifi::{AuthMethod, ClientConfiguration, Configuration};
 use esp_idf_hal::adc::attenuation::DB_11;
@@ -58,9 +58,7 @@ fn main() -> anyhow::Result<()> {
         uptime,
     );
 
-    loop {
-        thread::sleep(Duration::from_millis(1000));
-    }
+    Ok(())
 }
 
 fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()> {
