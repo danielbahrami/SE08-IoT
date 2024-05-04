@@ -144,12 +144,30 @@ fn mqtt_run(
                 let parts: Vec<&str> = payload.split(',').collect();
                 if parts.len() != 2 {
                     println!("Invalid command payload: {}", payload);
+                    if let Err(err) = client.enqueue(
+                        response_topic,
+                        QoS::AtMostOnce,
+                        false,
+                        format!("Invalid command payload: {}", payload).as_bytes()
+                    ) {
+                        println!("Error publishing payload: {:?}", err);
+                        break;
+                    }
                     continue;
                 }
                 let num_measurements = match parts[0][8..].parse::<u32>() {
                     Ok(num) => num,
                     Err(_) => {
                         println!("Invalid number of measurements: {}", &parts[0][8..]);
+                        if let Err(err) = client.enqueue(
+                            response_topic,
+                            QoS::AtMostOnce,
+                            false,
+                            format!("Invalid number of measurements: {}", &parts[0][8..]).as_bytes()
+                        ) {
+                            println!("Error publishing payload: {:?}", err);
+                            break;
+                        }
                         continue;
                     }
                 };
@@ -157,6 +175,15 @@ fn mqtt_run(
                     Ok(interval) => interval,
                     Err(_) => {
                         println!("Invalid interval: {}", parts[1]);
+                        if let Err(err) = client.enqueue(
+                            response_topic,
+                            QoS::AtMostOnce,
+                            false,
+                            format!("Invalid interval: {}", parts[1]).as_bytes()
+                        ) {
+                            println!("Error publishing payload: {:?}", err);
+                            break;
+                        }
                         continue;
                     }
                 };
@@ -173,7 +200,7 @@ fn mqtt_run(
                         false,
                         response_payload.as_bytes(),
                     ) {
-                        println!("Error publishing measurement: {:?}", err);
+                        println!("Error publishing response payload: {:?}", err);
                         break;
                     }
                     println!(
