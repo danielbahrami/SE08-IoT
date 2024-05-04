@@ -1,5 +1,5 @@
-use embuild::kconfig::{try_from_config_file, Value};
 use embuild::cargo::set_rustc_env;
+use embuild::kconfig::{try_from_config_file, Value};
 
 fn main() {
     embuild::espidf::sysenv::output();
