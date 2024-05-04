@@ -141,7 +141,7 @@ fn mqtt_run(
     loop {
         match rx.recv() {
             Ok(payload) => {
-                let parts: Vec<&str> = payload.split(',').collect();
+                let parts: Vec<&str> = payload.split(",").collect();
                 if parts.len() != 2 {
                     println!("Invalid command: {}", payload);
                     if let Err(err) = client.enqueue(
@@ -150,7 +150,7 @@ fn mqtt_run(
                         false,
                         format!("Invalid command: {}", payload).as_bytes(),
                     ) {
-                        println!("Error publishing payload: {:?}", err);
+                        eprintln!("Error publishing payload: {:?}", err);
                         break;
                     }
                     continue;
@@ -166,7 +166,7 @@ fn mqtt_run(
                             format!("Invalid number of measurements: {}", &parts[0][8..])
                                 .as_bytes(),
                         ) {
-                            println!("Error publishing payload: {:?}", err);
+                            eprintln!("Error publishing payload: {:?}", err);
                             break;
                         }
                         continue;
@@ -182,7 +182,7 @@ fn mqtt_run(
                             false,
                             format!("Invalid interval: {}", parts[1]).as_bytes(),
                         ) {
-                            println!("Error publishing payload: {:?}", err);
+                            eprintln!("Error publishing payload: {:?}", err);
                             break;
                         }
                         continue;
@@ -201,11 +201,11 @@ fn mqtt_run(
                         false,
                         response_payload.as_bytes(),
                     ) {
-                        println!("Error publishing response payload: {:?}", err);
+                        eprintln!("Error publishing response payload: {:?}", err);
                         break;
                     }
                     println!(
-                        "Published '{}' to topic '{}'",
+                        "Published \"{}\" to topic \"{}\"",
                         response_payload, response_topic
                     );
                     if remaining_messages > 0 {
@@ -214,7 +214,7 @@ fn mqtt_run(
                 }
             }
             Err(err) => {
-                println!("Error receiving message from channel: {:?}", err);
+                eprintln!("Error receiving message from channel: {:?}", err);
                 break;
             }
         }
