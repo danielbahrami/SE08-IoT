@@ -107,7 +107,7 @@ fn mqtt_run(
     command_topic: &str,
     response_topic: &str,
     adc_driver: adc::ADC1,
-    adc_pin: impl Peripheral<P = gpio::Gpio34> + 'static,
+    adc_pin: impl Peripheral<P = gpio::Gpio34>,
     uptime: SystemTime,
 ) {
     let adc_config = AdcChannelConfig {
