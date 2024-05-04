@@ -18,13 +18,13 @@ use esp_idf_svc::{
 };
 use esp_idf_sys::{self as _, EspError};
 
-const WIFI_SSID: &str = "WIFI_SSID";
-const WIFI_PASSWORD: &str = "WIFI_PASSWORD";
+const WIFI_SSID: &str = env!("WIFI_SSID");
+const WIFI_PASSWORD: &str = env!("WIFI_PASSWORD");
 
-const MQTT_BROKER: &str = "MQTT_BROKER";
-const MQTT_CLIENT_ID: &str = "MQTT_CLIENT_ID";
-const MQTT_COMMAND_TOPIC: &str = "MQTT_COMMAND_TOPIC";
-const MQTT_RESPONSE_TOPIC: &str = "MQTT_RESPONSE_TOPIC";
+const MQTT_BROKER: &str = env!("MQTT_BROKER");
+const MQTT_CLIENT_ID: &str = env!("MQTT_CLIENT_ID");
+const MQTT_COMMAND_TOPIC: &str = env!("MQTT_COMMAND_TOPIC");
+const MQTT_RESPONSE_TOPIC: &str = env!("MQTT_RESPONSE_TOPIC");
 
 const T_1: f32 = -50.0;
 const T_2: f32 = 50.0;
