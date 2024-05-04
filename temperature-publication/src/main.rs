@@ -143,12 +143,12 @@ fn mqtt_run(
             Ok(payload) => {
                 let parts: Vec<&str> = payload.split(',').collect();
                 if parts.len() != 2 {
-                    println!("Invalid command payload: {}", payload);
+                    println!("Invalid command: {}", payload);
                     if let Err(err) = client.enqueue(
                         response_topic,
                         QoS::AtMostOnce,
                         false,
-                        format!("Invalid command payload: {}", payload).as_bytes(),
+                        format!("Invalid command: {}", payload).as_bytes(),
                     ) {
                         println!("Error publishing payload: {:?}", err);
                         break;
