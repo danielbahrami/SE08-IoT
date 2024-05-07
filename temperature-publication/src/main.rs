@@ -123,11 +123,16 @@ fn mqtt_run(
         println!("MQTT listening for messages");
         while let Ok(event) = connection.next() {
             match event.payload() {
-                EventPayload::Received { id: _, topic: _, data, details: _ } => {
+                EventPayload::Received {
+                    id: _,
+                    topic: _,
+                    data,
+                    details: _,
+                } => {
                     let message = String::from_utf8(data.to_vec()).unwrap();
                     println!("Payload data: {}", message);
                     tx.send(message).unwrap();
-                },
+                }
                 _ => {
                     println!("Unhandled event payload received");
                 }
@@ -187,10 +192,11 @@ fn mqtt_run(
                             continue;
                         }
                     };
-    
+
                     for i in (0..num_measurements).rev() {
                         let remaining_messages = i;
-                        let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
+                        let temperature =
+                            calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
                         let uptime = uptime.elapsed().unwrap().as_millis();
                         let response_payload =
                             format!("{},{:.1},{}", remaining_messages, temperature, uptime);
