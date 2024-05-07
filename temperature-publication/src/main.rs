@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
     )?;
     connect_wifi(&mut wifi)?;
     let ip_info = wifi.wifi().sta_netif().get_ip_info()?;
-    println!("Wifi DHCP info: {:?}", ip_info);
+    println!("Wi-Fi DHCP info: {:?}", ip_info);
 
     let (mut client, conn) = mqtt_create(MQTT_BROKER, MQTT_CLIENT_ID).unwrap();
     mqtt_run(
@@ -74,13 +74,13 @@ fn connect_wifi(wifi: &mut BlockingWifi<EspWifi<'static>>) -> anyhow::Result<()>
     wifi.set_configuration(&wifi_configuration)?;
 
     wifi.start()?;
-    println!("Wifi started");
+    println!("Wi-Fi started");
 
     wifi.connect()?;
-    println!("Wifi connected");
+    println!("Wi-Fi connected");
 
     wifi.wait_netif_up()?;
-    println!("Wifi netif up");
+    println!("Wi-Fi netif up");
 
     Ok(())
 }
