@@ -10,6 +10,7 @@ use esp_idf_hal::adc::{self};
 use esp_idf_hal::gpio::{self};
 use esp_idf_hal::peripheral::Peripheral;
 use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_svc::mqtt::client::EventPayload;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop,
     mqtt::client::{EspMqttClient, EspMqttConnection, MqttClientConfiguration, QoS},
@@ -121,15 +122,15 @@ fn mqtt_run(
     std::thread::spawn(move || {
         println!("MQTT listening for messages");
         while let Ok(event) = connection.next() {
-            let payload = event.payload().to_string();
-            if let Some(start_index) = payload.find("measure:") {
-                let end_index = payload[start_index..]
-                    .find("\"")
-                    .map(|i| i + start_index)
-                    .unwrap_or(payload.len());
-                let payload_data = &payload[start_index..end_index];
-                println!("Payload data: {}", payload_data);
-                tx.send(payload_data.to_string()).unwrap();
+            match event.payload() {
+                EventPayload::Received { id: _, topic: _, data, details: _ } => {
+                    let message = String::from_utf8(data.to_vec()).unwrap();
+                    println!("Payload data: {}", message);
+                    tx.send(message).unwrap();
+                },
+                _ => {
+                    println!("Unhandled event payload received");
+                }
             }
         }
     });
@@ -138,77 +139,90 @@ fn mqtt_run(
 
     loop {
         match rx.recv() {
-            Ok(payload) => {
-                let parts: Vec<&str> = payload.split(",").collect();
-                if parts.len() != 2 {
-                    println!("Invalid command: {}", payload);
+            Ok(message) => {
+                if let Some(command) = message.strip_prefix("measure:") {
+                    let parts: Vec<&str> = command.split(",").collect();
+                    if parts.len() != 2 {
+                        println!("Invalid number of command arguments: {}", command);
+                        if let Err(err) = client.enqueue(
+                            response_topic,
+                            QoS::AtMostOnce,
+                            false,
+                            format!("Invalid number of command arguments: {}", command).as_bytes(),
+                        ) {
+                            eprintln!("Error publishing payload: {:?}", err);
+                            break;
+                        }
+                        continue;
+                    }
+                    let num_measurements = match parts[0].parse::<u32>() {
+                        Ok(num_measurements) => num_measurements,
+                        Err(_) => {
+                            println!("Invalid number of measurements: {}", parts[0]);
+                            if let Err(err) = client.enqueue(
+                                response_topic,
+                                QoS::AtMostOnce,
+                                false,
+                                format!("Invalid number of measurements: {}", parts[0]).as_bytes(),
+                            ) {
+                                eprintln!("Error publishing payload: {:?}", err);
+                                break;
+                            }
+                            continue;
+                        }
+                    };
+                    let interval = match parts[1].parse::<u64>() {
+                        Ok(interval) => interval,
+                        Err(_) => {
+                            println!("Invalid interval: {}", parts[1]);
+                            if let Err(err) = client.enqueue(
+                                response_topic,
+                                QoS::AtMostOnce,
+                                false,
+                                format!("Invalid interval: {}", parts[1]).as_bytes(),
+                            ) {
+                                eprintln!("Error publishing payload: {:?}", err);
+                                break;
+                            }
+                            continue;
+                        }
+                    };
+    
+                    for i in (0..num_measurements).rev() {
+                        let remaining_messages = i;
+                        let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
+                        let uptime = uptime.elapsed().unwrap().as_millis();
+                        let response_payload =
+                            format!("{},{:.1},{}", remaining_messages, temperature, uptime);
+                        if let Err(err) = client.enqueue(
+                            response_topic,
+                            QoS::AtMostOnce,
+                            false,
+                            response_payload.as_bytes(),
+                        ) {
+                            eprintln!("Error publishing response payload: {:?}", err);
+                            break;
+                        }
+                        println!(
+                            "Published \"{}\" to topic \"{}\"",
+                            response_payload, response_topic
+                        );
+                        if remaining_messages > 0 {
+                            std::thread::sleep(Duration::from_millis(interval));
+                        }
+                    }
+                } else {
+                    println!("Unknown command: {}", message);
                     if let Err(err) = client.enqueue(
                         response_topic,
                         QoS::AtMostOnce,
                         false,
-                        format!("Invalid command: {}", payload).as_bytes(),
+                        format!("Unknown command: {}", message).as_bytes(),
                     ) {
                         eprintln!("Error publishing payload: {:?}", err);
                         break;
                     }
                     continue;
-                }
-                let num_measurements = match parts[0][8..].parse::<u32>() {
-                    Ok(num) => num,
-                    Err(_) => {
-                        println!("Invalid number of measurements: {}", &parts[0][8..]);
-                        if let Err(err) = client.enqueue(
-                            response_topic,
-                            QoS::AtMostOnce,
-                            false,
-                            format!("Invalid number of measurements: {}", &parts[0][8..])
-                                .as_bytes(),
-                        ) {
-                            eprintln!("Error publishing payload: {:?}", err);
-                            break;
-                        }
-                        continue;
-                    }
-                };
-                let interval = match parts[1].parse::<u64>() {
-                    Ok(interval) => interval,
-                    Err(_) => {
-                        println!("Invalid interval: {}", parts[1]);
-                        if let Err(err) = client.enqueue(
-                            response_topic,
-                            QoS::AtMostOnce,
-                            false,
-                            format!("Invalid interval: {}", parts[1]).as_bytes(),
-                        ) {
-                            eprintln!("Error publishing payload: {:?}", err);
-                            break;
-                        }
-                        continue;
-                    }
-                };
-
-                for i in (0..num_measurements).rev() {
-                    let remaining_messages = i;
-                    let temperature = calculate_temperature(adc.read(&mut adc_pin).unwrap() as f32);
-                    let uptime = uptime.elapsed().unwrap().as_millis();
-                    let response_payload =
-                        format!("{},{:.1},{}", remaining_messages, temperature, uptime);
-                    if let Err(err) = client.enqueue(
-                        response_topic,
-                        QoS::AtMostOnce,
-                        false,
-                        response_payload.as_bytes(),
-                    ) {
-                        eprintln!("Error publishing response payload: {:?}", err);
-                        break;
-                    }
-                    println!(
-                        "Published \"{}\" to topic \"{}\"",
-                        response_payload, response_topic
-                    );
-                    if remaining_messages > 0 {
-                        std::thread::sleep(Duration::from_millis(interval));
-                    }
                 }
             }
             Err(err) => {
