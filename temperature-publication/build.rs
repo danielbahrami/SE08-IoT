@@ -4,7 +4,7 @@ use embuild::kconfig::{try_from_config_file, Value};
 fn main() {
     embuild::espidf::sysenv::output();
 
-    match try_from_config_file("kconfig.projbuild") {
+    match try_from_config_file("Kconfig.projbuild") {
         Ok(configurations) => {
             for (key, value) in configurations {
                 if let Value::String(string) = value {
