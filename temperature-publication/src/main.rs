@@ -148,12 +148,12 @@ fn mqtt_run(
                 if let Some(command) = message.strip_prefix("measure:") {
                     let parts: Vec<&str> = command.split(",").collect();
                     if parts.len() != 2 {
-                        println!("Invalid number of command arguments: {}", command);
+                        println!("Invalid number of command arguments: Expected 2 arguments, but found {}", parts.len());
                         if let Err(err) = client.enqueue(
                             response_topic,
                             QoS::AtMostOnce,
                             false,
-                            format!("Invalid number of command arguments: {}", command).as_bytes(),
+                            format!("Invalid number of command arguments: Expected 2 arguments, but found {}", parts.len()).as_bytes(),
                         ) {
                             eprintln!("Error publishing payload: {:?}", err);
                             break;
